@@ -1,0 +1,53 @@
+---
+
+version: 3
+images:
+  base_image:
+    name: quay.io/centos/centos:stream9
+dependencies:
+  python_interpreter:
+    package_system: python3.12
+    python_path: /usr/bin/python3.12
+  ansible_core:
+    package_pip: ansible-core<2.19
+  ansible_runner:
+    package_pip: ansible-runner
+  system:
+    - git-core
+    - openssh-clients
+    - sshpass
+    - terraform
+    - azure-cli
+  exclude:
+    system:
+      - python3
+      - python3-devel
+      - python3-rpm
+  python:
+    - receptorctl
+  galaxy:
+    collections:
+    - name: ansible.posix
+    - name: ansible.utils
+    - name: cloud.terraform
+    - name: community.dns
+    - name: community.general
+
+additional_build_steps:
+  prepend_base:
+    - RUN dnf update -y
+    - RUN dnf install -y python3.12 python3.12-pip
+    - RUN $PYCMD -m pip install -U pip
+    # Add microsoft repository for azure-cli rpm, can't install from pip currently
+    # https://github.com/ansible-collections/azure/issues/1779
+    - RUN rpm --import https://packages.microsoft.com/keys/microsoft.asc
+    - RUN curl -o /etc/yum.repos.d/microsoft-prod.repo https://packages.microsoft.com/config/rhel/9/prod.repo
+    # Add terraform repository
+    - RUN curl -o /etc/yum.repos.d/hashicorp.repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+  append_final:
+    - COPY --from=quay.io/ansible/receptor:latest /usr/bin/receptor /usr/bin/receptor
+    - RUN mkdir -p /var/run/receptor
+    - >-
+      RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+      && alternatives --install /usr/bin/python python /usr/bin/python3.12 1
+      && alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.12 1

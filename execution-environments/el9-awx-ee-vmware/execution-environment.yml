@@ -1,0 +1,47 @@
+---
+
+version: 3
+images:
+  base_image:
+    name: quay.io/centos/centos:stream9
+dependencies:
+  python_interpreter:
+    package_system: python3.12
+    python_path: /usr/bin/python3.12
+  ansible_core:
+    package_pip: ansible-core<2.19
+  ansible_runner:
+    package_pip: ansible-runner
+  system:
+    - git-core
+    - openssh-clients
+    - sshpass
+  exclude:
+    system:
+      - python3
+      - python3-devel
+      - python3-rpm
+  python:
+    - receptorctl
+  galaxy:
+    collections:
+    - name: ansible.posix
+    - name: ansible.utils
+    - name: community.dns
+    - name: community.general
+    - name: community.vmware
+    - name: vmware.vmware
+    - name: vmware.vmware_rest
+
+additional_build_steps:
+  prepend_base:
+    - RUN dnf update -y
+    - RUN dnf install -y python3.12 python3.12-pip
+    - RUN $PYCMD -m pip install -U pip
+  append_final:
+    - COPY --from=quay.io/ansible/receptor:latest /usr/bin/receptor /usr/bin/receptor
+    - RUN mkdir -p /var/run/receptor
+    - >-
+      RUN alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+      && alternatives --install /usr/bin/python python /usr/bin/python3.12 1
+      && alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.12 1

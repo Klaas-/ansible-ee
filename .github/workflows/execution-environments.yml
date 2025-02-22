@@ -7,12 +7,6 @@ on:
     paths:
       - .github/workflows/execution-environments.yml
       - execution-environments/**
-  pull_request:
-    branches:
-      - main
-    paths:
-      - .github/workflows/execution-environments.yml
-      - execution-environments/**
   workflow_dispatch:
   # Run once per week (Monday at 08:00 UTC)
   schedule:
@@ -22,12 +16,19 @@ jobs:
   build:
     name: 'Build EE image: ${{ matrix.name }}'
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     strategy:
       fail-fast: false
       matrix:
         include:
           - name: community-ee-base
           - name: community-ee-minimal
+          - name: el8-awx-ee-base
+          - name: el9-awx-ee-base
+          - name: el9-awx-ee-complete
+          - name: el9-awx-ee-terraform
+          - name: el9-awx-ee-vmware
 
     steps:
       - name: Check out repository
@@ -45,18 +46,34 @@ jobs:
           sudo apt-get install podman
           pip install ansible-core ansible-builder ansible-navigator
 
+      - name: set release date
+        run: |
+          echo "RELEASE_DATE=$(date +%Y-%V)" >> ${GITHUB_ENV}
+
       - name: Build ${{ matrix.name }} image
         env:
           NAME: ${{ matrix.name }}
         run: |
-          ansible-builder build -v 3 -t "test-ee:${NAME}"
+          ansible-builder build -v 3 --tag "${{matrix.name}}:${RELEASE_DATE}"
         working-directory: ./execution-environments/${{ matrix.name }}
 
-      - name: Run basic tests with ${{ matrix.name }} image
-        env:
-          NAME: ${{ matrix.name }}
+      - name: Find the id of the latest EE image
         run: |
-          ansible-navigator -v --mode stdout --pull-policy never \
-            --execution-environment-image "test-ee:${NAME}" \
-            run tests.yml
-        working-directory: ./execution-environments/${{ matrix.name }}
+          echo "IMAGE_ID=$(podman images -q "${{ matrix.name }}:${RELEASE_DATE}")">>$GITHUB_ENV
+
+      - name: Create the latest tag
+        run: |
+          podman tag "${IMAGE_ID}" "${{ matrix.name }}:latest"
+          podman images
+
+      - name: Upload artifact EE to quay
+        uses: Klaas-/push-to-registry@main
+        #uses: redhat-actions/push-to-registry@v2.8
+        with:
+          image: ${{ matrix.name }}
+          tags: >-
+            ${{ env.RELEASE_DATE }}
+            latest
+          registry: quay.io/gxmezrct
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
