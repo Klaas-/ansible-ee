@@ -29,6 +29,7 @@ dependencies:
     - name: ansible.posix
     - name: ansible.utils
     - name: azure.azcollection
+      version: 2.6.0
     - name: awx.awx
     - name: cloud.terraform
     - name: community.dns

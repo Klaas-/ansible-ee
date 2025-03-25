@@ -48,7 +48,7 @@ jobs:
 
       - name: set release date
         run: |
-          echo "RELEASE_DATE=$(date +%Y-%V)" >> ${GITHUB_ENV}
+          echo "RELEASE_DATE=$(date +%Y-%V)-az-v260" >> ${GITHUB_ENV}
 
       - name: Build ${{ matrix.name }} image
         env:
